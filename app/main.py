@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from typing import List
 from .schemas import Item  #importo la classe Item da schemas.py
+from pydantic import BaseModel
 from . import csv_store as db #importo csv_store e lo rinomino in db per chiarezza
+
+class CountResponse(BaseModel):
+    count: int
 
 app = FastAPI(title="CSV CRUD API", version="1.0.0")
 
@@ -24,6 +28,10 @@ def create_item(item: Item):
 def list_items(): #Restituisce tutti i record dal CSV come lista.
     return db.read_all()
 
+@app.get("/items/count", response_model=CountResponse)
+def count_items():
+    return {"count": len(db.read_all())}
+
 @app.get("/items/{id}", response_model=Item) #ritorna un singolo Item basato sull'id
 def get_item(id: int):
     items = db.read_all()
@@ -45,4 +53,14 @@ def update_item(id: int, item: Item):
             db.write_all(items)
             return items[idx]
 
+    raise HTTPException(status_code=404, detail=f"Item con id {id} non trovato.")
+
+@app.delete("/items/{id}", status_code=204, response_description="Item deleted successfully")
+def delete_item(id: int):
+    items = db.read_all()
+    for idx, r in enumerate(items): #restituisce sia l'indice che il record
+        if r["id"] == id:
+            del items[idx]
+            db.write_all(items)
+            return
     raise HTTPException(status_code=404, detail=f"Item con id {id} non trovato.")
